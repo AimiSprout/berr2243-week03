@@ -1,137 +1,341 @@
-const express = require('express');
-const { MongoClient, ObjectId } = require('mongodb');
-const cors = require('cors'); // Added CORS support
-const port = 3000;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ride Management Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .section h2 {
+            margin-top: 0;
+            color: #444;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select, button {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-top: 10px;
+            padding: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .action-btn {
+            padding: 5px 10px;
+            margin-right: 5px;
+            width: auto;
+        }
+        .update-btn {
+            background-color: #2196F3;
+        }
+        .delete-btn {
+            background-color: #f44336;
+        }
+        .status-requested {
+            color: #FF9800;
+        }
+        .status-cancelled {
+            color: #F44336;
+        }
+        .status-completed {
+            color: #4CAF50;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Ride Management Dashboard</h1>
+        
+        <div class="section">
+            <h2>Create New Ride</h2>
+            <div class="form-group">
+                <label for="pickupLocation">Pickup Location:</label>
+                <input type="text" id="pickupLocation" placeholder="e.g. Central Park">
+            </div>
+            <div class="form-group">
+                <label for="destination">Destination:</label>
+                <input type="text" id="destination" placeholder="e.g. Times Square">
+            </div>
+            <div class="form-group">
+                <label for="driverId">Driver ID:</label>
+                <input type="text" id="driverId" placeholder="e.g. DRIVER123">
+            </div>
+            <button id="createRideBtn">Create Ride</button>
+        </div>
+        
+        <div class="section">
+            <h2>All Rides</h2>
+            <button id="refreshRidesBtn">Refresh Rides</button>
+            <table id="ridesTable">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Pickup Location</th>
+                        <th>Destination</th>
+                        <th>Driver ID</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        
+        <div class="section">
+            <h2>Update Ride Status</h2>
+            <div class="form-group">
+                <label for="rideId">Ride ID:</label>
+                <input type="text" id="rideId" placeholder="Enter ride ID">
+            </div>
+            <div class="form-group">
+                <label for="newStatus">New Status:</label>
+                <select id="newStatus">
+                    <option value="requested">Requested</option>
+                    <option value="cancelled">Cancelled</option>
+                    <option value="completed">Completed</option>
+                </select>
+            </div>
+            <button id="updateStatusBtn" class="update-btn">Update Status</button>
+        </div>
+        
+        <div class="section">
+            <h2>Delete Ride</h2>
+            <div class="form-group">
+                <label for="deleteRideId">Ride ID:</label>
+                <input type="text" id="deleteRideId" placeholder="Enter ride ID to delete">
+            </div>
+            <button id="deleteRideBtn" class="delete-btn">Delete Ride</button>
+        </div>
+    </div>
 
-const app = express();
-
-// Middleware
-app.use(cors()); // Enable CORS for all routes
-app.use(express.json());
-
-let db;
-let client; // Store client to close connection properly
-
-async function connectToMongoDB() {
-    const url = "mongodb://localhost:27017";
-    client = new MongoClient(url); // Store the client reference
-
-    try {
-        await client.connect();
-        console.log("Connected to MongoDB!");
-        db = client.db("testDB");
-    } catch (err) {
-        console.error("MongoDB Connection Error:", err);
-        process.exit(1); // Exit if can't connect to DB
-    }
-}
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).json({ error: 'Something broke!' });
-});
-
-// Routes
-app.get('/rides', async (req, res) => {
-    try {
-        if (!db) throw new Error('Database not connected');
-        const rides = await db.collection('rides').find().toArray();
-        res.status(200).json(rides);
-    } catch (err) {
-        console.error('GET /rides error:', err);
-        res.status(500).json({ error: "Failed to fetch rides", details: err.message });
-    }
-});
-
-app.post('/rides', async (req, res) => {
-    try {
-        if (!req.body || !req.body.pickupLocation || !req.body.destination || !req.body.driverId) {
-            return res.status(400).json({ error: "Missing required fields" });
+    <script>
+        const API_BASE_URL = 'http://localhost:3000/rides';
+        
+        // DOM Elements
+        const createRideBtn = document.getElementById('createRideBtn');
+        const refreshRidesBtn = document.getElementById('refreshRidesBtn');
+        const updateStatusBtn = document.getElementById('updateStatusBtn');
+        const deleteRideBtn = document.getElementById('deleteRideBtn');
+        const ridesTable = document.getElementById('ridesTable').getElementsByTagName('tbody')[0];
+        
+        // Event Listeners
+        createRideBtn.addEventListener('click', createRide);
+        refreshRidesBtn.addEventListener('click', fetchAllRides);
+        updateStatusBtn.addEventListener('click', updateRideStatus);
+        deleteRideBtn.addEventListener('click', deleteRide);
+        
+        // Initialize by fetching all rides
+        fetchAllRides();
+        
+        // Functions
+        async function fetchAllRides() {
+            try {
+                const response = await fetch(API_BASE_URL);
+                if (!response.ok) throw new Error('Failed to fetch rides');
+                
+                const rides = await response.json();
+                displayRides(rides);
+            } catch (error) {
+                alert(error.message);
+                console.error('Error fetching rides:', error);
+            }
         }
         
-        const rideData = {
-            ...req.body,
-            status: req.body.status || 'requested', // Default status
-            createdAt: new Date()
-        };
-        
-        const result = await db.collection('rides').insertOne(rideData);
-        res.status(201).json({ 
-            id: result.insertedId,
-            message: "Ride created successfully"
-        });
-    } catch (err) {
-        console.error('POST /rides error:', err);
-        res.status(400).json({ error: "Invalid ride data", details: err.message });
-    }
-});
-
-app.patch('/rides/:id', async (req, res) => {
-    try {
-        if (!req.body.status) {
-            return res.status(400).json({ error: "Status is required" });
-        }
-
-        const result = await db.collection('rides').updateOne(
-            { _id: new ObjectId(req.params.id) },
-            { $set: { status: req.body.status, updatedAt: new Date() } }
-        );
-
-        if (result.matchedCount === 0) {
-            return res.status(404).json({ error: "Ride not found" });
-        }
-        
-        res.status(200).json({ 
-            updated: result.modifiedCount,
-            message: "Ride status updated successfully"
-        });
-    } catch (err) {
-        console.error('PATCH /rides/:id error:', err);
-        res.status(400).json({ 
-            error: "Invalid ride ID or data", 
-            details: err.message 
-        });
-    }
-});
-
-app.delete('/rides/:id', async (req, res) => {
-    try {
-        const result = await db.collection('rides').deleteOne(
-            { _id: new ObjectId(req.params.id) }
-        );
-
-        if (result.deletedCount === 0) {
-            return res.status(404).json({ error: "Ride not found" });
+        function displayRides(rides) {
+            ridesTable.innerHTML = '';
+            
+            if (!rides || rides.length === 0) {
+                const row = ridesTable.insertRow();
+                const cell = row.insertCell(0);
+                cell.colSpan = 6;
+                cell.textContent = 'No rides found';
+                return;
+            }
+            
+            rides.forEach(ride => {
+                const row = ridesTable.insertRow();
+                
+                row.insertCell(0).textContent = ride._id || 'N/A';
+                row.insertCell(1).textContent = ride.pickupLocation || 'N/A';
+                row.insertCell(2).textContent = ride.destination || 'N/A';
+                row.insertCell(3).textContent = ride.driverId || 'N/A';
+                
+                const statusCell = row.insertCell(4);
+                statusCell.textContent = ride.status || 'N/A';
+                statusCell.className = `status-${ride.status}`;
+                
+                const actionsCell = row.insertCell(5);
+                
+                const updateBtn = document.createElement('button');
+                updateBtn.textContent = 'Update';
+                updateBtn.className = 'action-btn update-btn';
+                updateBtn.onclick = () => {
+                    document.getElementById('rideId').value = ride._id;
+                    document.getElementById('newStatus').value = ride.status || 'requested';
+                };
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = 'Delete';
+                deleteBtn.className = 'action-btn delete-btn';
+                deleteBtn.onclick = () => {
+                    document.getElementById('deleteRideId').value = ride._id;
+                };
+                
+                actionsCell.appendChild(updateBtn);
+                actionsCell.appendChild(deleteBtn);
+            });
         }
         
-        res.status(200).json({ 
-            deleted: result.deletedCount,
-            message: "Ride deleted successfully"
-        });
-    } catch (err) {
-        console.error('DELETE /rides/:id error:', err);
-        res.status(400).json({ 
-            error: "Invalid ride ID", 
-            details: err.message 
-        });
-    }
-});
-
-// Graceful shutdown
-process.on('SIGINT', async () => {
-    if (client) {
-        await client.close();
-        console.log('MongoDB connection closed');
-    }
-    process.exit(0);
-});
-
-// Start server after DB connection
-connectToMongoDB().then(() => {
-    app.listen(port, () => {
-        console.log(`Server running on port ${port}`);
-    });
-}).catch(err => {
-    console.error('Failed to start server:', err);
-});
+        async function createRide() {
+            const pickupLocation = document.getElementById('pickupLocation').value;
+            const destination = document.getElementById('destination').value;
+            const driverId = document.getElementById('driverId').value;
+            
+            if (!pickupLocation || !destination || !driverId) {
+                alert('Please fill in all fields');
+                return;
+            }
+            
+            try {
+                const response = await fetch(API_BASE_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        pickupLocation,
+                        destination,
+                        driverId,
+                        status: 'requested'
+                    })
+                });
+                
+                if (!response.ok) throw new Error('Failed to create ride');
+                
+                alert('Ride created successfully!');
+                document.getElementById('pickupLocation').value = '';
+                document.getElementById('destination').value = '';
+                document.getElementById('driverId').value = '';
+                fetchAllRides();
+            } catch (error) {
+                alert(error.message);
+                console.error('Error creating ride:', error);
+            }
+        }
+        
+        async function updateRideStatus() {
+            const rideId = document.getElementById('rideId').value;
+            const newStatus = document.getElementById('newStatus').value;
+            
+            if (!rideId) {
+                alert('Please enter a ride ID');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/${rideId}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        status: newStatus
+                    })
+                });
+                
+                if (!response.ok) throw new Error('Failed to update ride status');
+                
+                alert('Ride status updated successfully!');
+                document.getElementById('rideId').value = '';
+                fetchAllRides();
+            } catch (error) {
+                alert(error.message);
+                console.error('Error updating ride status:', error);
+            }
+        }
+        
+        async function deleteRide() {
+            const rideId = document.getElementById('deleteRideId').value;
+            
+            if (!rideId) {
+                alert('Please enter a ride ID');
+                return;
+            }
+            
+            if (!confirm('Are you sure you want to delete this ride?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/${rideId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (!response.ok) throw new Error('Failed to delete ride');
+                
+                alert('Ride deleted successfully!');
+                document.getElementById('deleteRideId').value = '';
+                fetchAllRides();
+            } catch (error) {
+                alert(error.message);
+                console.error('Error deleting ride:', error);
+            }
+        }
+    </script>
+</body>
+</html>
