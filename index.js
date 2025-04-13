@@ -14,6 +14,7 @@ async function connectToMongoDB() {
     try {
         await client.connect();
         console.log("Connected to MongoDB!");
+
         db = client.db("testDB");
     } catch (err) {
         console.error("Error:", err);
@@ -53,10 +54,12 @@ app.patch('/rides/:id', async (req, res) => {
             { _id: new ObjectId(req.params.id) },
             { $set: { status: req.body.status } }
         );
+
         if (result.modifiedCount === 0) {
             return res.status(404).json({ error: "Ride not found" });
         }
         res.status(200).json({ updated: result.modifiedCount });
+
     } catch (err) {
         // Handle invalid ID format or DB errors
         res.status(400).json({ error: "Invalid ride ID or data" });
@@ -69,10 +72,12 @@ app.delete('/rides/:id', async (req, res) => {
         const result = await db.collection('rides').deleteOne(
             { _id: new ObjectId(req.params.id) }
         );
+
         if (result.deletedCount === 0) {
             return res.status(404).json({ error: "Ride not found" });
         }
         res.status(200).json({ deleted: result.deletedCount });
+        
     } catch (err) {
         res.status(400).json({ error: "Invalid ride ID" });
     }
