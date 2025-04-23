@@ -506,11 +506,7 @@ app.put('/classes/:id', authenticate, authorize(['trainer', 'admin']), async (re
 
 // 13. Delete Class
 app.delete('/classes/:id', authenticate, authorize(['trainer', 'admin']), async (req, res) => {
-<<<<<<< HEAD
     try {
-=======
-    try {s
->>>>>>> 05b2ea1233b451092a039a17dd5c6049f68d641e
         const classId = req.params.id;
         
         // Check if there are any bookings for this class
@@ -617,11 +613,7 @@ process.on('SIGINT', async () => {
 // Start server after DB connection
 connectToMongoDB().then(() => {
     app.listen(port, () => {
-<<<<<<< HEAD
         console.log("Server running on port " + port);
-=======
-        console.log(`Server running on port ${port}`);
->>>>>>> 05b2ea1233b451092a039a17dd5c6049f68d641e
     });
 }).catch(err => {
     console.error('Failed to start server:', err);
